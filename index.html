@@ -482,14 +482,13 @@ function solveRollouts(def,tries,cap){
           let n=1;for(let k=st.length-2;k>=0&&st[k].type==='word'&&st[k].cat===top.cat&&!locked.has(st[k].id);k--)n++;
           const f=openF(top.cat);
           if(f>=0)acts.push([100,()=>found[f].push(...st.splice(st.length-n))]);
-          /* на другую колонку */
+          /* строгий режим: только на слово той же категории или пустую колонку */
           stacks.forEach((d,di)=>{
             if(di===si)return;
             const dt=d[d.length-1];
             if(!d.length){if(n<st.length)acts.push([10,()=>d.push(...st.splice(st.length-n))]);return}
-            if(locked.has(dt.id)||dt.type==='gold')return;
-            const w=(dt.type==='word'&&dt.cat===top.cat)?26:7;
-            acts.push([w,()=>d.push(...st.splice(st.length-n))]);
+            if(locked.has(dt.id))return;
+            if(dt.type==='word'&&dt.cat===top.cat)acts.push([26,()=>d.push(...st.splice(st.length-n))]);
           });
         }else if(top.type==='gold'){
           const f=emptyF();
@@ -497,20 +496,10 @@ function solveRollouts(def,tries,cap){
           stacks.forEach((d,di)=>{if(di!==si&&!d.length&&st.length>1)acts.push([9,()=>d.push(st.pop())])});
         }else if(top.type==='key'){
           lockedTopCols.forEach(li=>{if(li!==si)acts.push([85,()=>{locked.delete(stacks[li][stacks[li].length-1].id);st.pop()}])});
-          stacks.forEach((d,di)=>{
-            if(di===si)return;
-            const dt=d[d.length-1];
-            if(!d.length){if(st.length>1)acts.push([6,()=>d.push(st.pop())]);return}
-            if(!locked.has(dt.id)&&dt.type!=='gold')acts.push([4,()=>d.push(st.pop())]);
-          });
+          stacks.forEach((d,di)=>{if(di!==si&&!d.length&&st.length>1)acts.push([6,()=>d.push(st.pop())])});
         }else{ /* джокер */
           found.forEach(f=>{if(f.length)acts.push([70,()=>f.push(st.pop())])});
-          stacks.forEach((d,di)=>{
-            if(di===si)return;
-            const dt=d[d.length-1];
-            if(!d.length){if(st.length>1)acts.push([4,()=>d.push(st.pop())]);return}
-            if(!locked.has(dt.id)&&dt.type!=='gold')acts.push([3,()=>d.push(st.pop())]);
-          });
+          stacks.forEach((d,di)=>{if(di!==si&&!d.length&&st.length>1)acts.push([4,()=>d.push(st.pop())])});
         }
       });
       if(waste.length){
@@ -521,9 +510,8 @@ function solveRollouts(def,tries,cap){
           stacks.forEach(d=>{
             const dt=d[d.length-1];
             if(!d.length){acts.push([10,()=>d.push(waste.pop())]);return}
-            if(locked.has(dt.id)||dt.type==='gold')return;
-            const w=(dt.type==='word'&&dt.cat===c.cat)?24:6;
-            acts.push([w,()=>d.push(waste.pop())]);
+            if(locked.has(dt.id))return;
+            if(dt.type==='word'&&dt.cat===c.cat)acts.push([24,()=>d.push(waste.pop())]);
           });
         }
       }
@@ -544,15 +532,15 @@ function generateLevel(cfg){
   for(let shift=0;shift<50;shift++){
     const def=buildDef(cfg,shift);
     if(!def)continue;
-    const min=solveRollouts(def,240,300);
+    const min=solveRollouts(def,420,300);
     if(min!==null){
-      def.moves=Math.ceil(min*1.5)+3;
+      def.moves=Math.ceil(min*1.6)+3;
       def.parMoves=min;
       return def;
     }
   }
   const def=buildDef(cfg,999)||buildDef({...cfg,locks:0},1001);
-  def.moves=Math.ceil((cfg.nCats*(cfg.wpc+1)+cfg.stock)*2.6);
+  def.moves=Math.ceil((cfg.nCats*(cfg.wpc+1)+cfg.stock)*2.8);
   return def;
 }
 
@@ -643,8 +631,36 @@ function colCanAccept(card,di,src){
   const dt=d[d.length-1];
   if(isLocked(dt))return false;
   if(dt.type==='gold')return false;
-  if(card.type==='gold')return false; /* золото — только пустая колонка или фундамент */
-  return true;
+  if(card.type==='gold')return false;            /* золото — только пустая колонка или фундамент */
+  if(card.type==='key'||card.type==='joker')return false; /* ключ/джокер — только пустая колонка или спец-цель */
+  /* СТРОГИЙ РЕЖИМ: слово ложится только на слово своей категории */
+  return dt.type==='word'&&dt.cat===card.cat;
+}
+/* что ПОДСВЕЧИВАЕМ при перетаскивании: без спойлеров —
+   для слова показываем все открытые категории и пустые колонки,
+   а настоящая проверка совпадения происходит только при сбросе */
+function computeShowTargets(card,src){
+  const t=[];
+  const F=$('#topRow').querySelectorAll('.fslot');
+  const C=$('#tableau').children;
+  const emptyCols=()=>S.stacks.forEach((d,i)=>{if(!d.length&&!(src.zone==='stack'&&src.idx===i))t.push({zone:'stack',idx:i,el:C[i]})});
+  if(card.type==='gold'){
+    S.found.forEach((f,i)=>{if(!f.length)t.push({zone:'found',idx:i,el:F[i]})});
+    emptyCols();
+  }else if(card.type==='key'){
+    S.stacks.forEach((st,i)=>{
+      const c=st[st.length-1];
+      if(c&&isLocked(c)&&!(src.zone==='stack'&&src.idx===i)){
+        const e=document.querySelector(`[data-id="${c.id}"]`);
+        if(e)t.push({zone:'lock',idx:i,el:e});
+      }
+    });
+    emptyCols();
+  }else{ /* слово или джокер */
+    S.found.forEach((f,i)=>{if(f.length)t.push({zone:'found',idx:i,el:F[i]})});
+    emptyCols();
+  }
+  return t;
 }
 function computeTargets(card,src){
   const t=[];
@@ -682,9 +698,12 @@ function dropError(card,zone,slotIdx){
   }
   const d=S.stacks[slotIdx],dt=d[d.length-1];
   if(card.type==='gold')return 'Золотая карта — только на пустое место';
+  if(card.type==='key')return 'Ключ — на замок 🔒 или пустое место';
+  if(card.type==='joker')return 'Джокер — в категорию или на пустое место';
   if(dt&&isLocked(dt))return 'Эта карта заперта 🔒';
   if(dt&&dt.type==='gold')return 'На золотую карту класть нельзя';
-  return 'Сюда нельзя';
+  if(dt&&(dt.type==='key'||dt.type==='joker'))return 'Класть можно только на слово той же группы';
+  return 'Эти слова из разных групп';
 }
 
 function doMove(src,dst,count,golden){
@@ -860,7 +879,9 @@ function startDrag(e,src){
   els.forEach((s,i)=>{const c=s.cloneNode(true);c.style.top=(i*18)+'px';c.style.visibility='visible';c.style.height=rect.height+'px';layer.appendChild(c)});
   $('#app').appendChild(layer);
   drag={src,cards,els,layer,dx:e.clientX-rect.left,dy:e.clientY-rect.top,
-        sx:e.clientX,sy:e.clientY,moved:false,targets:computeTargets(cards[0],src),hot:null};
+        sx:e.clientX,sy:e.clientY,moved:false,
+        targets:computeTargets(cards[0],src),
+        show:computeShowTargets(cards[0],src),hot:null};
   els.forEach(s=>s.style.visibility='hidden');
   positionLayer(e);
   window.addEventListener('pointermove',onDragMove);
@@ -887,11 +908,11 @@ function onDragMove(e){
   if(!drag)return;
   if(!drag.moved&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>7){
     drag.moved=true;
-    drag.targets.forEach(t=>t.el.classList.add('drop-ok'));
+    drag.show.forEach(t=>t.el.classList.add('drop-ok'));
   }
   positionLayer(e);
   if(drag.moved){
-    const hot=hitTarget(e,drag.targets);
+    const hot=hitTarget(e,drag.show);
     if(hot!==drag.hot){
       if(drag.hot)drag.hot.el.classList.remove('drop-hot');
       if(hot)hot.el.classList.add('drop-hot');
@@ -916,14 +937,15 @@ function onDragEnd(e){
   window.removeEventListener('pointerup',onDragEnd);
   window.removeEventListener('pointercancel',onDragEnd);
   const d=drag;drag=null;
-  d.targets.forEach(t=>t.el.classList.remove('drop-ok','drop-hot'));
+  d.targets.concat(d.show).forEach(t=>t.el.classList.remove('drop-ok','drop-hot'));
   d.layer.remove();
   const restore=()=>d.els.forEach(s=>s&&(s.style.visibility=''));
   if(!d.moved){
     restore();
-    if(d.targets.length){
-      d.targets.forEach(t=>{t.el.classList.add('drop-flash');setTimeout(()=>t.el.classList.remove('drop-flash'),1200)});
-      toast('Перетащи карту в подсвеченное место');
+    const flash=d.show.length?d.show:d.targets;
+    if(flash.length){
+      flash.forEach(t=>{t.el.classList.add('drop-flash');setTimeout(()=>t.el.classList.remove('drop-flash'),1200)});
+      toast('Перетащи карту в подходящее место');
     }else{toast('Этой карте пока некуда идти');shakeCard(d.cards[0].id)}
     return;
   }
@@ -1180,7 +1202,7 @@ function showTutorial(i){
     <h2>Как играть</h2>
     <div class="tut">
       <div class="row"><div class="n">1</div><div>Перетащи <b>золотую карту</b> наверх — она откроет категорию. Разгадай, какие слова с ней связаны!</div></div>
-      <div class="row"><div class="n">2</div><div>Слова перекладывай <b>между стопками стола</b>, чтобы добраться до нужных. На золотую карту класть нельзя.</div></div>
+      <div class="row"><div class="n">2</div><div>На столе слово ложится <b>только на слово своей группы</b> или на пустое место. Не сходится — значит, это разные категории!</div></div>
       <div class="row"><div class="n">3</div><div>Тап по <b>колоде</b> — взять карту. Карты с 🔒 открываются картой-ключом 🗝 (ключи видны даже на рубашках!).</div></div>
       <div class="row"><div class="n">👣</div><div>Каждое действие — один ход. Уложись в лимит. Простое касание карты подсветит её ходы.</div></div>
     </div>
