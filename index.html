@@ -56,8 +56,30 @@
   .node.locked{background:#2C5547;border-color:#3C6B5A;color:#7FA391;cursor:default}
   .node .stars{font-size:9px;letter-spacing:1px;margin-top:1px}
   .node-label{position:absolute;width:96px;left:50%;transform:translateX(-50%);top:68px;text-align:center;font-size:10.5px;color:#BFD8C7;font-weight:700}
-  .map-foot{margin-top:30px;font-size:11.5px;color:#7FA391;text-align:center;line-height:1.6}
-  #soundBtn{margin-top:14px}
+  .map-foot{margin-top:18px;font-size:11.5px;color:#7FA391;text-align:center;line-height:1.6}
+  .map-btns{display:flex;gap:10px;margin-top:16px}
+  #dailyCard{
+    margin-top:16px;width:min(88%,310px);
+    background:rgba(0,0,0,.28);border:1.5px solid rgba(242,193,78,.45);
+    border-radius:14px;padding:10px 12px;
+    display:flex;align-items:center;gap:10px;justify-content:space-between;
+  }
+  #dailyCard .dc-t{font-family:var(--disp);font-weight:700;font-size:14px}
+  #dailyCard .dc-d{font-size:11px;color:#BFD8C7;margin-top:2px}
+  #dailyCard .dc-btn{
+    border:none;border-radius:10px;padding:9px 14px;font-weight:800;font-family:var(--body);font-size:13px;
+    background:linear-gradient(180deg,var(--gold-1),var(--gold-2));color:var(--gold-ink);
+    box-shadow:0 3px 0 #A8761F;cursor:pointer;white-space:nowrap;
+  }
+  #dailyCard .dc-btn:active{transform:translateY(2px);box-shadow:0 1px 0 #A8761F}
+  #dailyCard .dc-btn.done{background:linear-gradient(180deg,#8FBF77,var(--mint));color:#1E3B16;box-shadow:0 3px 0 #4F7A40}
+  .chapter-banner{
+    position:absolute;left:-12px;right:-12px;height:38px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--disp);font-weight:700;font-size:13px;color:var(--gold-1);
+    background:linear-gradient(90deg,transparent,rgba(242,193,78,.14),transparent);
+    border-top:1px dashed rgba(242,193,78,.35);border-bottom:1px dashed rgba(242,193,78,.35);
+  }
 
   /* ---------- game ---------- */
   #gameScreen{padding:8px 8px 6px}
@@ -133,6 +155,8 @@
   }
   .card.gold::after{content:"";position:absolute;inset:3px;border:1.5px dashed rgba(74,50,16,.45);border-radius:7px;pointer-events:none}
   .card.key{background:linear-gradient(165deg,#E8EEF2,var(--steel-1) 45%,var(--steel-2));border:2px solid #F2F7FA;color:#33424E}
+  .card.joker{background:linear-gradient(165deg,#EFE0FA,#CBA8E9 45%,#A87BD0);border:2px solid #F5EBFD;color:#4B2A6B}
+  .card.joker::after{content:"";position:absolute;inset:3px;border:1.5px dashed rgba(75,42,107,.4);border-radius:7px;pointer-events:none}
   .card .em{font-size:calc(var(--ch)*0.22);line-height:1}
   .card .tx{font-weight:800;font-size:calc(var(--ch)*0.145);line-height:1.06;word-break:break-word}
   .card.gold .tx{font-family:var(--disp);font-size:calc(var(--ch)*0.125)}
@@ -217,8 +241,12 @@
       <div class="l3">Разгадай, что связывает слова, и собери их под золотые карты — как масти в пасьянсе, только умнее.</div>
     </div>
     <button id="resumeBtn">▶ Продолжить уровень</button>
+    <div id="dailyCard"></div>
     <div id="path"></div>
-    <button class="icon-btn" id="soundBtn">🔊</button>
+    <div class="map-btns">
+      <button class="icon-btn" id="soundBtn">🔊</button>
+      <button class="icon-btn" id="statsBtn">📊</button>
+    </div>
     <div class="map-foot">Перетаскивай карты по столу и в категории<br>Тап по колоде — взять карту</div>
   </div>
 
@@ -273,19 +301,58 @@ const BANK = {
   'Детектив':  ['🕵️',['Улика','Алиби','Допрос','Версия','Мотив']],
   'Рыбалка':   ['🎣',['Поплавок','Наживка','Клёв','Удочка','Блесна']],
   'Балет':     ['🩰',['Пачка','Пуанты','Фуэте','Станок','Антраша']],
+  'Олимпиада': ['🥇',['Факел','Пьедестал','Рекорд','Эстафета','Медаль']],
+  'Новый год': ['🎄',['Куранты','Гирлянда','Оливье','Хлопушка','Снегурочка']],
+  'Корабль':   ['⛵',['Якорь','Палуба','Штурвал','Трюм','Парус']],
 };
+/* пары-ловушки: темы пересекаются, игрок легко перепутает */
+const TRAP_PAIRS=[
+  ['Зевс','Гроза'],['Зевс','Олимпиада'],['Театр','Карнавал'],['Театр','Цирк'],
+  ['Цирк','Карнавал'],['Сон','Бессонница'],['Шерлок','Детектив'],
+  ['Море','Корабль'],['Пираты','Корабль'],['Пираты','Море'],['Море','Рыбалка'],
+  ['Часы','Новый год'],['Карнавал','Новый год'],['Гадалка','Алхимия'],['Рыцарь','Самурай'],
+];
 const CAT_COLORS = ['#E2725B','#5B8FB9','#7FB069','#B07FB0','#D9A441','#5BB9A8','#C75A7A','#8A7FB0'];
 
-const LEVELS = [
-  {name:'1 · Первые шаги',   seed:111, nCats:2, wpc:4, fS:2, stacks:4, faceUp:3, stock:0, locks:0, strips:true},
-  {name:'2 · Тропа в лесу',  seed:222, nCats:3, wpc:4, fS:3, stacks:5, faceUp:3, stock:3, locks:0, strips:true},
-  {name:'3 · Горный перевал',seed:333, nCats:4, wpc:4, fS:3, stacks:5, faceUp:2, stock:4, locks:0, strips:false},
-  {name:'4 · Хитрый каньон', seed:444, nCats:4, wpc:4, fS:2, stacks:6, faceUp:2, stock:5, locks:1, strips:false},
-  {name:'5 · Большой базар', seed:555, nCats:5, wpc:4, fS:3, stacks:6, faceUp:2, stock:6, locks:1, strips:false},
-  {name:'6 · Туманный лес',  seed:666, nCats:5, wpc:4, fS:3, stacks:7, faceUp:2, stock:7, locks:2, strips:false},
-  {name:'7 · Перевал ветров',seed:777, nCats:6, wpc:4, fS:3, stacks:7, faceUp:2, stock:8, locks:2, strips:false},
-  {name:'8 · Вершина',       seed:888, nCats:6, wpc:4, fS:3, stacks:8, faceUp:2, stock:9, locks:3, strips:false},
+/* главы-локации: каждая со своим пулом категорий */
+const CHAPTERS=[
+  {n:'Лесная тропа', e:'🌲', pool:['Мёд','Рыбалка','Осень','Гроза','Сон','Бессонница','Пекарня','Почта','Часы','Библиотека']},
+  {n:'Городские огни',e:'🎭', pool:['Театр','Цирк','Карнавал','Балет','Свадьба','Новый год','Детектив','Шерлок','Библиотека','Часы','Пекарня']},
+  {n:'Море и паруса', e:'⛵', pool:['Море','Корабль','Пираты','Рыбалка','Почта','Египет','Гадалка','Детектив','Осень']},
+  {n:'Древние земли', e:'🏺', pool:['Египет','Зевс','Олимпиада','Рыцарь','Самурай','Алхимия','Гадалка','Вампир','Шахматы','Свадьба']},
+  {n:'К звёздам',     e:'✨', pool:['Космонавт','Зевс','Гроза','Часы','Алхимия','Шахматы','Сон','Бессонница','Вампир','Олимпиада','Шерлок']},
 ];
+function buildLevels(){
+  const nCatsByCh=[
+    [2,3,3,3,4,3,4,4,4,4],
+    [3,4,4,4,5,4,5,5,5,5],
+    [4,4,5,5,5,4,5,5,6,6],
+    [4,5,5,5,6,5,6,6,6,6],
+    [5,5,6,6,6,5,6,6,6,6],
+  ];
+  const L=[];
+  for(let c=0;c<CHAPTERS.length;c++)for(let j=0;j<10;j++){
+    const num=c*10+j+1;
+    const nCats=nCatsByCh[c][j];
+    const peak=(j===4||j===9), boss=j===9;
+    L.push({
+      name:`${num} · ${CHAPTERS[c].n}`,
+      seed:num*101+c*7, ch:c, boss,
+      nCats, wpc:4,
+      fS:(peak&&nCats>3)?2:Math.min(3,nCats),
+      stacks:Math.min(8,nCats+2+(c>=2?1:0)),
+      faceUp:(c===0&&j<3)?3:2,
+      stock:(c===0&&j===0)?0:Math.min(10,nCats+c),
+      locks:c===0?0:(c===1?(j>=6?1:0):Math.min(3,(c>=3?2:1)+(boss?1:0))),
+      jokers:(c>=2&&(j===0||j===5||boss))?1:0,
+      strips:num<=2,
+      trap:peak||(c>=2&&j===7),
+      pool:CHAPTERS[c].pool,
+    });
+  }
+  return L;
+}
+const LEVELS=buildLevels();
 
 /* ===================================================== */
 /* ==================== УТИЛИТЫ ======================== */
@@ -322,12 +389,12 @@ const STORE = (typeof window!=='undefined' && window.storage) ? window.storage :
   async set(k,v){ localStorage.setItem(k,v); return {key:k, value:v}; },
   async delete(k){ localStorage.removeItem(k); return {key:k, deleted:true}; },
 };
-let progress={unlocked:1,stars:{},sound:true};
+let progress={unlocked:1,stars:{},sound:true,daily:{last:'',streak:0}};
 async function loadProgress(){try{const r=await STORE.get('saj_progress');if(r&&r.value)progress=Object.assign(progress,JSON.parse(r.value))}catch(e){}}
 async function saveProgress(){try{await STORE.set('saj_progress',JSON.stringify(progress))}catch(e){}}
 async function saveGame(){
   if(!S||!L)return;
-  try{await STORE.set('saj_save',JSON.stringify({lidx:Lidx,def:DEF,S}))}catch(e){}
+  try{await STORE.set('saj_save',JSON.stringify({lidx:Lidx,daily:DAILY,name:L.name,def:DEF,S}))}catch(e){}
 }
 async function clearSave(){try{await STORE.delete('saj_save')}catch(e){}}
 async function loadSave(){try{const r=await STORE.get('saj_save');return r&&r.value?JSON.parse(r.value):null}catch(e){return null}}
@@ -336,15 +403,24 @@ async function loadSave(){try{const r=await STORE.get('saj_save');return r&&r.va
 /* ============== ГЕНЕРАТОР УРОВНЕЙ + СОЛВЕР =========== */
 /* ===================================================== */
 function pickCategories(cfg,rnd){
-  const names=shuf(Object.keys(BANK),rnd);
-  const chosen=[],usedWords=new Set();
-  for(const n of names){
-    if(chosen.length>=cfg.nCats)break;
-    const words=BANK[n][1];
-    if(words.some(w=>usedWords.has(w)))continue;
-    chosen.push(n);words.forEach(w=>usedWords.add(w));
+  const chosen=[],used=new Set();
+  const ok=n=>BANK[n]&&!chosen.includes(n)&&!BANK[n][1].some(w=>used.has(w));
+  const add=n=>{chosen.push(n);BANK[n][1].forEach(w=>used.add(w))};
+  if(cfg.trap){
+    const pairs=shuf(TRAP_PAIRS.slice(),rnd);
+    let got=false;
+    for(const [a,b] of pairs){ /* сперва ловушки, касающиеся темы главы */
+      if(cfg.pool&&!cfg.pool.includes(a)&&!cfg.pool.includes(b))continue;
+      if(ok(a)&&ok(b)){add(a);add(b);got=true;break}
+    }
+    if(!got)for(const [a,b] of pairs){if(ok(a)&&ok(b)){add(a);add(b);break}}
   }
-  return chosen;
+  const order=[...shuf((cfg.pool||[]).slice(),rnd),...shuf(Object.keys(BANK),rnd)];
+  for(const n of order){
+    if(chosen.length>=cfg.nCats)break;
+    if(ok(n))add(n);
+  }
+  return shuf(chosen.slice(0,cfg.nCats),rnd);
 }
 function buildDef(cfg,seedShift){
   const rnd=mulberry32(cfg.seed+seedShift*9973);
@@ -358,10 +434,11 @@ function buildDef(cfg,seedShift){
     c.w.forEach(t=>words.push({id:'w'+(id++),type:'word',cat:ci,text:t}));
   });
   const keys=[];for(let k=0;k<cfg.locks;k++)keys.push({id:'k'+(id++),type:'key',text:'Ключ',em:'🗝'});
+  const jokers=[];for(let j=0;j<(cfg.jokers||0);j++)jokers.push({id:'j'+(id++),type:'joker',text:'Джокер',em:'🃏'});
   const wpool=shuf(words.slice(),rnd);
   const stock=wpool.slice(0,Math.min(cfg.stock,wpool.length));
   const tableWords=wpool.slice(stock.length);
-  const tdeck=shuf([...golds,...tableWords,...keys],rnd);
+  const tdeck=shuf([...golds,...tableWords,...keys,...jokers],rnd);
   const stacks=Array.from({length:cfg.stacks},()=>[]);
   tdeck.forEach((c,i)=>stacks[i%cfg.stacks].push(c));
   if(!stacks.some(st=>st.length&&st[st.length-1].type==='gold'))return null;
@@ -388,9 +465,9 @@ function solveRollouts(def,tries,cap){
     let stock=def.stock.slice(),waste=[];
     const found=Array.from({length:def.fS},()=>[]);
     const locked=new Set(def.lockedIds);
-    let completed=0,moves=0;
+    let completed=0,moves=0,iters=0;
     const limit=best?best-1:cap;
-    while(moves<limit&&completed<nCats){
+    while(iters++<cap*3&&moves<limit&&completed<nCats){
       const acts=[];
       const openF=ci=>found.findIndex(f=>f.length&&f[0].cat===ci);
       const emptyF=()=>found.findIndex(f=>!f.length);
@@ -418,13 +495,21 @@ function solveRollouts(def,tries,cap){
           const f=emptyF();
           if(f>=0)acts.push([60,()=>found[f].push(st.pop())]);
           stacks.forEach((d,di)=>{if(di!==si&&!d.length&&st.length>1)acts.push([9,()=>d.push(st.pop())])});
-        }else{ /* key */
+        }else if(top.type==='key'){
           lockedTopCols.forEach(li=>{if(li!==si)acts.push([85,()=>{locked.delete(stacks[li][stacks[li].length-1].id);st.pop()}])});
           stacks.forEach((d,di)=>{
             if(di===si)return;
             const dt=d[d.length-1];
             if(!d.length){if(st.length>1)acts.push([6,()=>d.push(st.pop())]);return}
             if(!locked.has(dt.id)&&dt.type!=='gold')acts.push([4,()=>d.push(st.pop())]);
+          });
+        }else{ /* джокер */
+          found.forEach(f=>{if(f.length)acts.push([70,()=>f.push(st.pop())])});
+          stacks.forEach((d,di)=>{
+            if(di===si)return;
+            const dt=d[d.length-1];
+            if(!d.length){if(st.length>1)acts.push([4,()=>d.push(st.pop())]);return}
+            if(!locked.has(dt.id)&&dt.type!=='gold')acts.push([3,()=>d.push(st.pop())]);
           });
         }
       });
@@ -442,13 +527,13 @@ function solveRollouts(def,tries,cap){
           });
         }
       }
-      if(stock.length)acts.push([22,()=>waste.push(stock.pop())]);
-      else if(waste.length>1)acts.push([5,()=>{stock=waste.reverse();waste=[]}]);
+      if(stock.length)acts.push([22,()=>waste.push(stock.pop()),true]);
+      else if(waste.length>1)acts.push([8,()=>{stock=waste.reverse();waste=[]},true]);
       if(!acts.length)break;
       let sum=0;for(const a of acts)sum+=a[0];
       let r=rnd()*sum,pick=acts[0];
       for(const a of acts){r-=a[0];if(r<=0){pick=a;break}}
-      pick[1]();moves++;
+      pick[1]();if(!pick[2])moves++;
       found.forEach((f,fi)=>{if(f.length===1+def.wpc){completed++;found[fi]=[]}});
     }
     if(completed===nCats){if(best===null||moves<best)best=moves}
@@ -493,10 +578,22 @@ function fitLayout(){
 /* ===================================================== */
 /* ================= СОСТОЯНИЕ ИГРЫ ==================== */
 /* ===================================================== */
-let L=null,DEF=null,Lidx=0,S=null,history=[],busy=false;
+let L=null,DEF=null,Lidx=0,S=null,history=[],busy=false,DAILY=false;
 
-function initLevel(i,resume){
-  Lidx=i;L=LEVELS[i];
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function dailyCfg(){
+  const ds=todayStr();
+  const n=Number(ds.replace(/-/g,''));
+  return {
+    name:'📅 Пазл дня · '+ds.slice(8)+'.'+ds.slice(5,7),
+    seed:n, nCats:4+(n%2), wpc:4,
+    fS:3, stacks:6+(n%2), faceUp:2,
+    stock:5+(n%3), locks:(n%3===0)?1:0, jokers:(n%5===0)?1:0,
+    strips:false, trap:n%2===1, pool:null,
+  };
+}
+function startLevel(cfg,idx,daily,resume){
+  Lidx=idx;L=cfg;DAILY=daily;
   if(resume){DEF=resume.def;S=resume.S}
   else{
     DEF=generateLevel(L);
@@ -516,6 +613,9 @@ function initLevel(i,resume){
   if(!resume)toast(`👣 ${DEF.moves} ходов · 3★ если останется ≥${Math.ceil(DEF.moves*0.4)}`);
   saveGame();
 }
+function initLevel(i,resume){startLevel(LEVELS[i],i,false,resume)}
+function initDaily(resume){startLevel(dailyCfg(),-1,true,resume)}
+function restartLevel(){clearSave();if(DAILY)initDaily();else initLevel(Lidx)}
 
 const catSize=()=>1+DEF.wpc;
 const isLocked=c=>S.locked.includes(c.id);
@@ -556,6 +656,9 @@ function computeTargets(card,src){
   }else if(card.type==='word'){
     S.found.forEach((f,i)=>{if(f.length&&f[0].cat===card.cat)t.push({zone:'found',idx:i,el:F[i]})});
     S.stacks.forEach((d,i)=>{if(colCanAccept(card,i,src))t.push({zone:'stack',idx:i,el:C[i]})});
+  }else if(card.type==='joker'){
+    S.found.forEach((f,i)=>{if(f.length)t.push({zone:'found',idx:i,el:F[i]})});
+    S.stacks.forEach((d,i)=>{if(colCanAccept(card,i,src))t.push({zone:'stack',idx:i,el:C[i]})});
   }else{
     S.stacks.forEach((st,i)=>{
       const c=st[st.length-1];
@@ -571,6 +674,7 @@ function computeTargets(card,src){
 function dropError(card,zone,slotIdx){
   if(zone==='found'){
     const f=S.found[slotIdx];
+    if(card.type==='joker')return 'Джокер — в уже открытую категорию';
     if(card.type==='key')return 'Ключ нужен запертой карте на столе';
     if(card.type==='gold')return 'Слот занят другой категорией';
     if(!f.length)return 'Сюда сначала нужна золотая карта';
@@ -622,13 +726,13 @@ function drawCard(){
   if(!S.stock.length&&S.waste.length>1){
     snapshot();
     S.stock=S.waste.reverse();S.waste=[];
-    S.moves--;sDraw();renderAll();saveGame();
+    sDraw();renderAll();saveGame();
     setTimeout(checkEnd,80);return;
   }
   if(!S.stock.length){toast('Колода пуста');return}
   snapshot();
   const c=S.stock.pop();c.up=true;S.waste.push(c);
-  S.moves--;sDraw();haptic();
+  sDraw();haptic();
   renderAll([c.id]);saveGame();
   setTimeout(checkEnd,80);
 }
@@ -664,6 +768,9 @@ function anyMoveExists(){
     }else if(c.type==='gold'){
       if(emptyFoundation()>=0)return true;
       if(hasEmpty)return true;
+    }else if(c.type==='joker'){
+      if(S.found.some(f=>f.length))return true;
+      if(S.stacks.some((d,di)=>colCanAccept(c,di,{zone:'stack',idx:si})))return true;
     }else{
       if(lockCount)return true;
       if(S.stacks.some((d,di)=>colCanAccept(c,di,{zone:'stack',idx:si})))return true;
@@ -684,7 +791,7 @@ function outOfMoves(){
       <button class="btn" id="mRetry">Начать заново</button>
       <button class="btn ghost" id="mMap">К карте</button>`);
     $('#mRescue').onclick=()=>{hideModal();S.rescue=true;S.moves+=5;sGold();renderAll();saveGame()};
-    $('#mRetry').onclick=()=>{hideModal();clearSave();initLevel(Lidx)};
+    $('#mRetry').onclick=()=>{hideModal();restartLevel()};
     $('#mMap').onclick=()=>{hideModal();showMap()};
     return;
   }
@@ -694,20 +801,33 @@ function winLevel(){
   clearSave();
   const ratio=S.moves/DEF.moves;
   const stars=ratio>=.4?3:ratio>=.15?2:1;
-  progress.stars[Lidx]=Math.max(progress.stars[Lidx]||0,stars);
-  progress.unlocked=Math.max(progress.unlocked,Math.min(Lidx+2,LEVELS.length));
+  let extra='';
+  if(DAILY){
+    const t=todayStr();
+    if(!progress.daily)progress.daily={last:'',streak:0};
+    if(progress.daily.last!==t){
+      const y=new Date(Date.now()-864e5);
+      const ys=y.getFullYear()+'-'+String(y.getMonth()+1).padStart(2,'0')+'-'+String(y.getDate()).padStart(2,'0');
+      progress.daily.streak=(progress.daily.last===ys)?progress.daily.streak+1:1;
+      progress.daily.last=t;
+    }
+    extra=`<p>Серия пазлов дня: <b>🔥 ${progress.daily.streak}</b></p>`;
+  }else{
+    progress.stars[Lidx]=Math.max(progress.stars[Lidx]||0,stars);
+    progress.unlocked=Math.max(progress.unlocked,Math.min(Lidx+2,LEVELS.length));
+  }
   saveProgress();
-  const next=Lidx+1<LEVELS.length;
+  const next=!DAILY&&Lidx+1<LEVELS.length;
   modal(`
-    <h2>Уровень пройден!</h2>
+    <h2>${DAILY?'Пазл дня пройден!':'Уровень пройден!'}</h2>
     <div class="stars-big">${'⭐'.repeat(stars)}${'☆'.repeat(3-stars)}</div>
-    <p>Осталось ходов: <b>${S.moves}</b> из ${DEF.moves}</p>
-    ${next?'<button class="btn gold" id="mNext">Дальше →</button>':'<p><b>Это была вершина маршрута 🎉</b></p>'}
+    <p>Осталось ходов: <b>${S.moves}</b> из ${DEF.moves}</p>${extra}
+    ${next?'<button class="btn gold" id="mNext">Дальше →</button>':''}
     <button class="btn" id="mReplay">Сыграть ещё раз</button>
     <button class="btn ghost" id="mMap">К карте</button>`);
   sDone();
   if(next)$('#mNext').onclick=()=>{hideModal();initLevel(Lidx+1)};
-  $('#mReplay').onclick=()=>{hideModal();initLevel(Lidx)};
+  $('#mReplay').onclick=()=>{hideModal();restartLevel()};
   $('#mMap').onclick=()=>{hideModal();showMap()};
 }
 function loseModal(title,text){
@@ -715,7 +835,7 @@ function loseModal(title,text){
     <button class="btn" id="mRetry">Начать заново</button>
     ${history.length?'<button class="btn gold" id="mUndo">↩ Отменить ход</button>':''}
     <button class="btn ghost" id="mMap">К карте</button>`);
-  $('#mRetry').onclick=()=>{hideModal();clearSave();initLevel(Lidx)};
+  $('#mRetry').onclick=()=>{hideModal();restartLevel()};
   const u=$('#mUndo');if(u)u.onclick=()=>{hideModal();undo()};
   $('#mMap').onclick=()=>{hideModal();showMap()};
 }
@@ -842,6 +962,8 @@ function hint(){
   for(const [c] of tops){if(c.type==='word'&&openFoundationFor(c.cat)>=0){mark(c.id,F[openFoundationFor(c.cat)]);return}}
   /* 2: золото в пустой слот */
   for(const [c] of tops){if(c.type==='gold'&&emptyFoundation()>=0){mark(c.id,F[emptyFoundation()]);return}}
+  /* 2.5: джокер в открытую категорию */
+  for(const [c] of tops){if(c.type==='joker'){const fi=S.found.findIndex(f=>f.length);if(fi>=0){mark(c.id,F[fi]);return}}}
   /* 3: ключ к замку */
   const lockedCols=S.stacks.map((st,si)=>({st,si})).filter(({st})=>{const c=st[st.length-1];return c&&isLocked(c)});
   if(lockedCols.length){
@@ -866,7 +988,7 @@ function hint(){
 /* ===================================================== */
 function cardEl(c,faceUp,opts){
   opts=opts||{};
-  const d=el('div','card '+(faceUp?(c.type==='gold'?'gold':c.type==='key'?'key':'word'):'back'));
+  const d=el('div','card '+(faceUp?(c.type==='gold'?'gold':c.type==='key'?'key':c.type==='joker'?'joker':'word'):'back'));
   d.dataset.id=c.id;
   if(faceUp){
     if(c.type==='word'&&DEF.strips){const s=el('div','strip');s.style.background=CAT_COLORS[c.cat%CAT_COLORS.length];d.appendChild(s)}
@@ -876,6 +998,7 @@ function cardEl(c,faceUp,opts){
     if(isLocked(c)){d.classList.add('lockedc');d.appendChild(el('div','lockov','🔒'))}
   }else{
     if(c.type==='key')d.appendChild(el('div','badge','🗝'));
+    else if(c.type==='joker')d.appendChild(el('div','badge','🃏'));
     else if(isLocked(c))d.appendChild(el('div','badge','🔒'));
     if(opts.thin)d.classList.add('thin');
   }
@@ -994,22 +1117,34 @@ function showScreen(name){
 }
 async function showMap(){
   renderMap();
+  renderDaily();
   const save=await loadSave();
   const rb=$('#resumeBtn');
-  if(save&&save.S&&save.S.completed.length<save.def.cats.length){
+  if(save&&save.S&&save.def&&save.S.completed.length<save.def.cats.length){
     rb.style.display='block';
-    rb.textContent='▶ Продолжить: '+LEVELS[save.lidx].name;
-    rb.onclick=()=>initLevel(save.lidx,save);
+    rb.textContent='▶ Продолжить: '+(save.name||(save.daily?'Пазл дня':(LEVELS[save.lidx]||{}).name||'уровень'));
+    rb.onclick=()=>{if(save.daily)initDaily(save);else initLevel(save.lidx,save)};
   }else rb.style.display='none';
   showScreen('map');
 }
+function renderDaily(){
+  const d=$('#dailyCard');
+  const t=todayStr();
+  const dd=progress.daily||{last:'',streak:0};
+  const done=dd.last===t;
+  d.innerHTML=`<div><div class="dc-t">📅 Пазл дня</div><div class="dc-d">${t.slice(8)}.${t.slice(5,7)} · серия 🔥 ${dd.streak||0}</div></div>
+    <button class="dc-btn${done?' done':''}">${done?'✓ Пройден':'Играть'}</button>`;
+  d.querySelector('.dc-btn').onclick=()=>{clearSave();initDaily()};
+}
 function renderMap(){
   const P=$('#path');P.innerHTML='';
-  const n=LEVELS.length,rowH=104;
-  P.style.height=(n*rowH+30)+'px';
-  const pts=LEVELS.map((_,i)=>{const y=(n-1-i)*rowH+34;const x=i%2===0?52:164;return[x+32,y+32]});
+  const n=LEVELS.length,rowH=92,banH=54,nodeH=64;
+  const totalH=n*rowH+CHAPTERS.length*banH+20;
+  P.style.height=totalH+'px';
+  const yOf=i=>{const c=Math.floor(i/10);return totalH-(i+1)*rowH-(c+1)*banH+14};
+  const pts=LEVELS.map((_,i)=>{const x=i%2===0?52:164;return[x+32,yOf(i)+32]});
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('viewBox',`0 0 280 ${n*rowH+30}`);
+  svg.setAttribute('viewBox',`0 0 280 ${totalH}`);
   let d=`M ${pts[0][0]} ${pts[0][1]}`;
   for(let i=1;i<pts.length;i++){const[x1,y1]=pts[i-1],[x2,y2]=pts[i];d+=` C ${x1} ${(y1+y2)/2}, ${x2} ${(y1+y2)/2}, ${x2} ${y2}`}
   const path=document.createElementNS('http://www.w3.org/2000/svg','path');
@@ -1017,14 +1152,20 @@ function renderMap(){
   path.setAttribute('stroke','rgba(242,193,78,.35)');path.setAttribute('stroke-width','4');
   path.setAttribute('stroke-dasharray','2 9');path.setAttribute('stroke-linecap','round');
   svg.appendChild(path);P.appendChild(svg);
+  /* баннеры глав */
+  CHAPTERS.forEach((chp,c)=>{
+    const b=el('div','chapter-banner',`${chp.e} Глава ${c+1} · ${chp.n}`);
+    b.style.top=(totalH-c*10*rowH-(c+1)*banH+8)+'px';
+    P.appendChild(b);
+  });
+  /* уровни */
   LEVELS.forEach((lv,i)=>{
     const locked=i+1>progress.unlocked;
     const node=el('div','node'+(locked?' locked':''));
-    const y=(n-1-i)*rowH+34,x=i%2===0?52:164;
-    node.style.left=x+'px';node.style.top=y+'px';
+    node.style.left=(i%2===0?52:164)+'px';
+    node.style.top=yOf(i)+'px';
     const st=progress.stars[i]||0;
-    node.innerHTML=locked?'🔒':`${i+1}<div class="stars">${'★'.repeat(st)||'·'}</div>`;
-    node.appendChild(el('div','node-label',lv.name.split('· ')[1]));
+    node.innerHTML=locked?'🔒':`${i+1}<div class="stars">${lv.boss?'👑 ':''}${'★'.repeat(st)||'·'}</div>`;
     if(!locked)node.addEventListener('pointerdown',()=>{
       if(i===0&&!progress.stars[0]&&!progress._tut)showTutorial(i);
       else{clearSave();initLevel(i)}
@@ -1060,7 +1201,7 @@ $('#btnHint').addEventListener('pointerdown',()=>hint());
 $('#btnRestart').addEventListener('pointerdown',()=>{
   modal(`<h2>Начать уровень заново?</h2><p>Будет собрана новая раскладка.</p>
     <button class="btn" id="mYes">Да, заново</button><button class="btn ghost" id="mNo">Отмена</button>`);
-  $('#mYes').onclick=()=>{hideModal();clearSave();initLevel(Lidx)};
+  $('#mYes').onclick=()=>{hideModal();restartLevel()};
   $('#mNo').onclick=hideModal;
 });
 $('#soundBtn').addEventListener('pointerdown',()=>{
@@ -1068,6 +1209,23 @@ $('#soundBtn').addEventListener('pointerdown',()=>{
   saveProgress();
   $('#soundBtn').textContent=progress.sound===false?'🔇':'🔊';
   if(progress.sound!==false)beep(660,.08);
+});
+$('#statsBtn').addEventListener('pointerdown',()=>{
+  const passed=Object.keys(progress.stars).filter(k=>k>=0).length;
+  const stars=Object.entries(progress.stars).filter(([k])=>k>=0).reduce((a,[,v])=>a+v,0);
+  const dd=progress.daily||{streak:0,last:''};
+  let chDone='';
+  CHAPTERS.forEach((chp,c)=>{
+    const got=LEVELS.filter((lv,i)=>lv.ch===c&&progress.stars[i]).length;
+    chDone+=`${chp.e} ${chp.n}: <b>${got}/10</b><br>`;
+  });
+  modal(`<h2>📊 Статистика</h2>
+    <p>Пройдено уровней: <b>${passed} / ${LEVELS.length}</b><br>
+    Звёзды: <b>⭐ ${stars} / ${LEVELS.length*3}</b><br>
+    Серия пазлов дня: <b>🔥 ${dd.streak||0}</b></p>
+    <p style="text-align:left">${chDone}</p>
+    <button class="btn" id="mOk">Ок</button>`);
+  $('#mOk').onclick=hideModal;
 });
 function refit(){
   fitLayout();
